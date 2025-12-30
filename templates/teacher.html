@@ -334,12 +334,45 @@
             width: 90%;
         }
 
+        .btn-toggle-sidebar {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #333;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
             }
             .main-content {
                 margin-left: 0;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .btn-toggle-sidebar {
+                display: block;
             }
         }
     </style>
@@ -357,9 +390,14 @@
         </ul>
     </div>
 
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="main-content">
         <div class="top-bar">
-            <h2 id="pageTitle">My Details</h2>
+            <div class="d-flex align-items-center">
+                <button class="btn-toggle-sidebar" id="sidebarToggle"><i class="fas fa-bars"></i></button>
+                <h2 id="pageTitle" class="m-0">My Details</h2>
+            </div>
             <div class="user-info">
                 <span id="userName">Teacher</span>
                 <button class="btn btn-danger btn-sm ms-3" onclick="logout()">
@@ -448,7 +486,9 @@
                         <i class="fas fa-download"></i> Download Excel
                     </button>
                 </div>
+                <div class="table-responsive">
                 <div id="reportContent"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -474,6 +514,17 @@
                     const section = this.dataset.section;
                     showSection(section);
                 });
+            });
+
+            // Mobile sidebar toggle
+            document.getElementById('sidebarToggle').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.add('active');
+                document.getElementById('sidebarOverlay').classList.add('active');
+            });
+
+            document.getElementById('sidebarOverlay').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.remove('active');
+                this.classList.remove('active');
             });
         });
 

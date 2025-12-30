@@ -1,8 +1,6 @@
-opencv-python-headless
 Flask
 flask-cors
-Werkzeug
 PyJWT
+opencv-python-headless
 openpyxl
-Pillow
 gunicorn
