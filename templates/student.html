@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Smart Attendance</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f5f7fa;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            width: 280px;
+            background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px 0;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+
+        .sidebar-header i {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0 15px;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 5px;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .sidebar-menu i {
+            margin-right: 10px;
+            width: 20px;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            padding: 25px;
+            border: none;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4facfe;
+        }
+
+        .info-item label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .info-item p {
+            margin: 5px 0 0;
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .subject-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .subject-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .subject-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+        }
+
+        .subject-card small {
+            opacity: 0.9;
+        }
+
+        .register-face-section {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .camera-container {
+            position: relative;
+            max-width: 640px;
+            margin: 20px auto;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        #cameraFeed {
+            width: 100%;
+            display: block;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 400px;
+            border: 3px solid #4facfe;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+        }
+
+        .camera-overlay::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: #00f2fe;
+            animation: scan 2s infinite linear;
+            box-shadow: 0 0 10px #00f2fe;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border: none;
+            padding: 14px 30px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .form-control {
+            padding: 14px 15px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+            font-size: 16px;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 0.2rem rgba(79, 172, 254, 0.25);
+        }
+
+        .attendance-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(79, 172, 254, 0.3);
+        }
+
+        .blink-instruction {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .attendance-table {
+            margin-top: 20px;
+        }
+
+        .attendance-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            font-weight: 600;
+        }
+
+        .attendance-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .progress-bar-container {
+            background: #e9ecef;
+            height: 30px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 10px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            transition: width 0.3s;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-user-graduate"></i>
+            <h4>Student Panel</h4>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="#" class="active" data-section="details"><i class="fas fa-info-circle"></i> My Details</a></li>
+            <li><a href="#" data-section="registerFace"><i class="fas fa-camera"></i> Register Face</a></li>
+            <li><a href="#" data-section="markAttendance"><i class="fas fa-check-circle"></i> Mark Attendance</a></li>
+            <li><a href="#" data-section="viewReport"><i class="fas fa-chart-line"></i> Attendance Report</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h2 id="pageTitle">My Details</h2>
+            <div class="user-info">
+                <span id="userName">Student</span>
+                <button class="btn btn-danger btn-sm ms-3" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Student Details Section -->
+        <div class="content-section active" id="details">
+            <div class="card">
+                <h4 class="mb-4"><i class="fas fa-user"></i> Personal Information</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Name</label>
+                        <p id="studentName">-</p>
+                    </div>
+                    <div class="info-item">
+                        <label>Email</label>
+                        <p id="studentEmail">-</p>
+                    </div>
+                    <div class="info-item">
+                        <label>Class</label>
+                        <p id="studentClass">-</p>
+                    </div>
+                    <div class="info-item">
+                        <label>Face Registered</label>
+                        <p id="faceStatus">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h4 class="mb-4"><i class="fas fa-book"></i> My Subjects</h4>
+                <div class="subject-list" id="subjectsList"></div>
+            </div>
+        </div>
+
+        <!-- Register Face Section -->
+        <div class="content-section" id="registerFace">
+            <div class="card">
+                <div class="register-face-section">
+                    <h4 class="mb-4"><i class="fas fa-camera"></i> Register Your Face</h4>
+                    <p id="faceRegistrationStatus"></p>
+                    
+                    <div id="cameraSection" style="display: none;">
+                        <div class="camera-container">
+                            <video id="cameraFeed" autoplay></video>
+                            <div class="camera-overlay"></div>
+                        </div>
+                        <div class="blink-instruction">
+                            <i class="fas fa-eye"></i> Please blink your eyes when capturing
+                        </div>
+                        <button class="btn-success" onclick="captureFace()">
+                            <i class="fas fa-camera"></i> Capture Face
+                        </button>
+                        <button class="btn btn-secondary ms-2" onclick="stopCamera()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                    
+                    <button id="startCameraBtn" class="btn-primary" onclick="startCamera()">
+                        <i class="fas fa-video"></i> Start Camera
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mark Attendance Section -->
+        <div class="content-section" id="markAttendance">
+            <div class="card">
+                <h4 class="mb-4"><i class="fas fa-check-circle"></i> Mark Your Attendance</h4>
+                
+                <div id="alertContainer"></div>
+                
+                <div id="codeInputSection">
+                    <div class="text-center mb-4">
+                        <label class="form-label">Enter 6-Digit Session Code</label>
+                        <input type="text" class="form-control" id="sessionCodeInput" 
+                               maxlength="6" placeholder="000000" style="max-width: 300px; margin: 0 auto;">
+                    </div>
+                    <div class="text-center">
+                        <button class="btn-primary" onclick="verifyCode()">
+                            <i class="fas fa-arrow-right"></i> Verify Code
+                        </button>
+                    </div>
+                </div>
+
+                <div id="attendanceCameraSection" style="display: none;">
+                    <div class="attendance-card">
+                        <h5 id="sessionInfo">Session Active</h5>
+                    </div>
+                    <div class="camera-container">
+                        <video id="attendanceCamera" autoplay></video>
+                        <div class="camera-overlay"></div>
+                    </div>
+                    <div class="blink-instruction">
+                        <i class="fas fa-eye"></i> Please blink your eyes to mark attendance
+                    </div>
+                    <div class="text-center mt-3">
+                        <button class="btn-success" onclick="markAttendance()">
+                            <i class="fas fa-check"></i> Mark Attendance
+                        </button>
+                        <button class="btn btn-secondary ms-2" onclick="cancelAttendance()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Report Section -->
+        <div class="content-section" id="viewReport">
+            <div class="card">
+                <h4 class="mb-4"><i class="fas fa-chart-line"></i> My Attendance Report</h4>
+                <div id="reportContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let studentData = null;
+        let currentStream = null;
+        let currentSessionData = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadStudentData();
+
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.sidebar-menu a').forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    const section = this.dataset.section;
+                    showSection(section);
+                });
+            });
+        });
+
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!token || user.role !== 'student') {
+                window.location.href = '/';
+            }
+            document.getElementById('userName').textContent = user.name || 'Student';
+        }
+
+        function showSection(section) {
+            stopAllCameras();
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(section).classList.add('active');
+            const titles = {
+                'details': 'My Details',
+                'registerFace': 'Register Face',
+                'markAttendance': 'Mark Attendance',
+                'viewReport': 'Attendance Report'
+            };
+            document.getElementById('pageTitle').textContent = titles[section];
+
+            if (section === 'registerFace') {
+                checkFaceRegistration();
+            } else if (section === 'viewReport') {
+                loadAttendanceReport();
+            }
+        }
+
+        async function loadStudentData() {
+            try {
+                const response = await fetch('/api/student/profile', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+                studentData = await response.json();
+                
+                document.getElementById('studentName').textContent = studentData.name;
+                document.getElementById('studentEmail').textContent = studentData.email;
+                document.getElementById('studentClass').textContent = studentData.class_name;
+                document.getElementById('faceStatus').textContent = studentData.face_registered ? '✓ Registered' : '✗ Not Registered';
+
+                const subjectsList = document.getElementById('subjectsList');
+                subjectsList.innerHTML = '';
+                studentData.subjects.forEach(subject => {
+                    subjectsList.innerHTML += `
+                        <div class="subject-card">
+                            <h6>${subject.name}</h6>
+                            <small>${subject.code}</small>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error loading student data:', error);
+            }
+        }
+
+        async function checkFaceRegistration() {
+            if (studentData && studentData.face_registered) {
+                document.getElementById('faceRegistrationStatus').innerHTML = 
+                    '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Your face is already registered!</div>';
+                document.getElementById('startCameraBtn').style.display = 'none';
+            } else {
+                document.getElementById('faceRegistrationStatus').innerHTML = 
+                    '<p class="text-muted">Please register your face to mark attendance using facial recognition</p>';
+                document.getElementById('startCameraBtn').style.display = 'inline-block';
+            }
+        }
+
+        async function startCamera() {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                document.getElementById('cameraFeed').srcObject = currentStream;
+                document.getElementById('cameraSection').style.display = 'block';
+                document.getElementById('startCameraBtn').style.display = 'none';
+            } catch (error) {
+                alert('Error accessing camera: ' + error.message);
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            document.getElementById('cameraSection').style.display = 'none';
+            document.getElementById('startCameraBtn').style.display = 'inline-block';
+        }
+
+        async function captureFace() {
+            const video = document.getElementById('cameraFeed');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            try {
+                const response = await fetch('/api/student/register-face', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('Face registered successfully!');
+                    stopCamera();
+                    loadStudentData();
+                    checkFaceRegistration();
+                } else {
+                    alert(result.message || 'Failed to register face');
+                }
+            } catch (error) {
+                alert('Error registering face: ' + error.message);
+            }
+        }
+
+        async function verifyCode() {
+            const code = document.getElementById('sessionCodeInput').value;
+            
+            if (code.length !== 6) {
+                showAlert('danger', 'Please enter a 6-digit code');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/student/verify-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ code })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    if (!studentData.face_registered) {
+                        showAlert('danger', 'Please register your face first!');
+                        return;
+                    }
+
+                    currentSessionData = result;
+                    document.getElementById('sessionInfo').textContent = 
+                        `${result.class_name} - ${result.subject_name}`;
+                    
+                    document.getElementById('codeInputSection').style.display = 'none';
+                    document.getElementById('attendanceCameraSection').style.display = 'block';
+
+                    currentStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { width: 640, height: 480 } 
+                    });
+                    document.getElementById('attendanceCamera').srcObject = currentStream;
+                } else {
+                    showAlert('danger', result.message || 'Invalid code or session expired');
+                }
+            } catch (error) {
+                showAlert('danger', 'Error verifying code: ' + error.message);
+            }
+        }
+
+        async function markAttendance() {
+            if (!currentSessionData) {
+                showAlert('danger', 'No active session');
+                return;
+            }
+
+            const video = document.getElementById('attendanceCamera');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            try {
+                const response = await fetch('/api/student/mark-attendance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ 
+                        session_id: currentSessionData.session_id,
+                        image: imageData 
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert('success', 'Attendance marked successfully!');
+                    cancelAttendance();
+                } else {
+                    showAlert('danger', result.message || 'Failed to mark attendance');
+                }
+            } catch (error) {
+                showAlert('danger', 'Error marking attendance: ' + error.message);
+            }
+        }
+
+        function cancelAttendance() {
+            stopAllCameras();
+            document.getElementById('codeInputSection').style.display = 'block';
+            document.getElementById('attendanceCameraSection').style.display = 'none';
+            document.getElementById('sessionCodeInput').value = '';
+            currentSessionData = null;
+        }
+
+        function stopAllCameras() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+        }
+
+        async function loadAttendanceReport() {
+            try {
+                const response = await fetch('/api/student/attendance-report', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+                const data = await response.json();
+                
+                const reportContent = document.getElementById('reportContent');
+                reportContent.innerHTML = '';
+
+                data.subjects.forEach(subject => {
+                    const percentage = subject.total > 0 ? 
+                        ((subject.present / subject.total) * 100).toFixed(1) : 0;
+                    
+                    reportContent.innerHTML += `
+                        <div class="mb-4">
+                            <h5>${subject.name} (${subject.code})</h5>
+                            <p class="mb-2">Present: ${subject.present} / ${subject.total} classes</p>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${percentage}%">
+                                    ${percentage}%
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (data.subjects.length === 0) {
+                    reportContent.innerHTML = '<p class="text-muted text-center">No attendance data available</p>';
+                }
+            } catch (error) {
+                console.error('Error loading report:', error);
+            }
+        }
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alertContainer');
+            const alertClass = type === 'success' ? 'alert-success' : 
+                              type === 'danger' ? 'alert-danger' : 'alert-warning';
+            container.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        function logout() {
+            stopAllCameras();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
