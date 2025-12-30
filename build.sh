@@ -3,7 +3,7 @@
 set -o errexit
 
 # Upgrade pip
-python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade pip setuptools wheel
 
 # Install build dependencies first
 python3 -m pip install --no-cache-dir cmake numpy
@@ -13,7 +13,10 @@ python3 -m pip install --no-cache-dir cmake numpy
 export CMAKE_ARGS="-D_USE_CUDA=0"
 export CMAKE_BUILD_PARALLEL_LEVEL=1
 export MAKEFLAGS="-j1"
-python3 -m pip install --no-cache-dir dlib
+python3 -m pip install --no-cache-dir --no-build-isolation dlib
+
+# Install face-recognition explicitly to link with installed dlib
+python3 -m pip install --no-cache-dir face-recognition
 
 # Install the rest of the dependencies
 python3 -m pip install --no-cache-dir -r requirements.txt
