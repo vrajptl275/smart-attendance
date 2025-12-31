@@ -4,173 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Smart Attendance</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-            background-size: 400% 400%;
-            animation: gradient 15s ease infinite;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Poppins', sans-serif;
-        }
-        @keyframes gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .login-card {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            backdrop-filter: blur(10px);
-            width: 100%;
-            max-width: 400px;
-            transform: translateY(0);
-            transition: transform 0.3s;
-        }
-        .login-card:hover {
-            transform: translateY(-5px);
-        }
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .login-header i {
-            font-size: 50px;
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-        .login-header h3 {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        .form-control {
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            border: 2px solid #eee;
-            transition: all 0.3s;
-        }
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        }
-        .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            width: 100%;
-            font-weight: 600;
-            margin-top: 10px;
-            transition: transform 0.2s;
-            letter-spacing: 1px;
-        }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
-        }
-        .alert {
-            display: none;
-            margin-bottom: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/login.css">
 </head>
 <body>
-    <div class="login-card">
-        <div class="login-header">
-            <i class="fas fa-user-circle"></i>
-            <h3>Welcome Back</h3>
-            <p class="text-muted">Login to your account</p>
-        </div>
-        
-        <div class="alert alert-danger" id="errorAlert"></div>
-
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="mb-3">
-                <label class="form-label">Email Address</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                    <input type="email" class="form-control" id="email" required placeholder="Enter your email">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fas fa-fingerprint"></i>
                 </div>
+                <h1>Smart Attendance</h1>
+                <p>Sign in to continue</p>
             </div>
             
-            <div class="mb-3">
-                <label class="form-label">Password</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                    <input type="password" class="form-control" id="password" required placeholder="Enter your password">
-                </div>
-            </div>
+            <div class="alert alert-danger" id="errorAlert"></div>
 
-            <button type="submit" class="btn-login">Login</button>
-        </form>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="input-group">
+                    <label>Email Address</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" required placeholder="Enter your email">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" required placeholder="Enter your password">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login">
+                    <span>Sign In</span>
+                </button>
+            </form>
+
+            <div class="footer-text">
+                Secure facial recognition attendance system
+            </div>
+        </div>
     </div>
 
-    <script>
-        async function handleLogin(event) {
-            event.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorAlert = document.getElementById('errorAlert');
-            const btn = document.querySelector('.btn-login');
-
-            // Reset state
-            errorAlert.style.display = 'none';
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Store token and user info
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-
-                    // Redirect based on role received from backend
-                    switch(data.user.role) {
-                        case 'admin':
-                            window.location.href = '/admin';
-                            break;
-                        case 'teacher':
-                            window.location.href = '/teacher';
-                            break;
-                        case 'student':
-                            window.location.href = '/student';
-                            break;
-                        default:
-                            errorAlert.textContent = 'Unknown role';
-                            errorAlert.style.display = 'block';
-                    }
-                } else {
-                    errorAlert.textContent = data.message || 'Login failed';
-                    errorAlert.style.display = 'block';
-                    btn.disabled = false;
-                    btn.textContent = 'Login';
-                }
-            } catch (error) {
-                errorAlert.textContent = 'An error occurred. Please try again.';
-                errorAlert.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = 'Login';
-            }
-        }
-    </script>
+    <script src="/static/js/login.js"></script>
 </body>
 </html>
