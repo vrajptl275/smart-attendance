@@ -1,6 +1,8 @@
 Flask
-flask-cors
+Flask-Cors
 PyJWT
 opencv-python-headless
-openpyxl
+numpy
+face-recognition
 gunicorn
+cmake

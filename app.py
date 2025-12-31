@@ -3,7 +3,7 @@ Smart Attendance System - Complete Backend
 Flask server with SQLite, Face Recognition, and all API endpoints
 """
 
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
@@ -18,7 +18,6 @@ import numpy as np
 import face_recognition
 from functools import wraps
 from io import BytesIO
-import openpyxl
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
@@ -384,30 +383,47 @@ def manage_teachers(current_user, class_id):
         password = data.get('password')
         subjects = data.get('subjects', [])
         
-        if not name or not email or not password:
-            return jsonify({'message': 'All fields required'}), 400
+        if not name or not email:
+            return jsonify({'message': 'Name and email required'}), 400
         
         try:
             conn = get_db()
-            hashed_password = generate_password_hash(password)
             
-            cursor = conn.execute(
-                'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
-                (email, hashed_password, name, 'teacher')
-            )
-            user_id = cursor.lastrowid
+            # Check if teacher already exists
+            existing_user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
             
-            cursor = conn.execute(
-                'INSERT INTO teachers (user_id) VALUES (?)',
-                (user_id,)
-            )
-            teacher_id = cursor.lastrowid
+            if existing_user:
+                if existing_user['role'] != 'teacher':
+                    return jsonify({'message': 'Email is registered to a non-teacher account'}), 400
+                
+                teacher = conn.execute('SELECT id FROM teachers WHERE user_id = ?', (existing_user['id'],)).fetchone()
+                teacher_id = teacher['id']
+            else:
+                if not password:
+                    return jsonify({'message': 'Password required for new teacher'}), 400
+                    
+                hashed_password = generate_password_hash(password)
+                cursor = conn.execute(
+                    'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
+                    (email, hashed_password, name, 'teacher')
+                )
+                user_id = cursor.lastrowid
+                
+                cursor = conn.execute(
+                    'INSERT INTO teachers (user_id) VALUES (?)',
+                    (user_id,)
+                )
+                teacher_id = cursor.lastrowid
             
             for subject_id in subjects:
-                conn.execute(
-                    'INSERT INTO teacher_subjects (teacher_id, subject_id, class_id) VALUES (?, ?, ?)',
-                    (teacher_id, subject_id, class_id)
-                )
+                # Avoid duplicates
+                exists = conn.execute('SELECT id FROM teacher_subjects WHERE teacher_id=? AND subject_id=? AND class_id=?', 
+                                    (teacher_id, subject_id, class_id)).fetchone()
+                if not exists:
+                    conn.execute(
+                        'INSERT INTO teacher_subjects (teacher_id, subject_id, class_id) VALUES (?, ?, ?)',
+                        (teacher_id, subject_id, class_id)
+                    )
             
             conn.commit()
             conn.close()
@@ -517,6 +533,7 @@ def update_student(current_user, student_id):
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
+    class_id = data.get('class_id')
 
     if not name or not email:
         return jsonify({'message': 'Name and email required'}), 400
@@ -535,6 +552,9 @@ def update_student(current_user, student_id):
         else:
             conn.execute('UPDATE users SET name = ?, email = ? WHERE id = ?',
                          (name, email, user_id))
+
+        if class_id:
+            conn.execute('UPDATE students SET class_id = ? WHERE id = ?', (class_id, student_id))
 
         conn.commit()
         return jsonify({'message': 'Student updated successfully'})
@@ -557,10 +577,16 @@ def delete_subject(current_user, subject_id):
 @token_required
 @role_required('admin')
 def delete_teacher(current_user, teacher_id):
+    class_id = request.args.get('class_id')
     conn = get_db()
-    user_id = conn.execute('SELECT user_id FROM teachers WHERE id = ?', (teacher_id,)).fetchone()
-    if user_id:
-        conn.execute('DELETE FROM users WHERE id = ?', (user_id['user_id'],))
+    
+    if class_id:
+        # Only remove from this specific class
+        conn.execute('DELETE FROM teacher_subjects WHERE teacher_id = ? AND class_id = ?', (teacher_id, class_id))
+    else:
+        user_id = conn.execute('SELECT user_id FROM teachers WHERE id = ?', (teacher_id,)).fetchone()
+        if user_id:
+            conn.execute('DELETE FROM users WHERE id = ?', (user_id['user_id'],))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Teacher deleted successfully'})
@@ -749,6 +775,8 @@ def register_face(current_user):
         image_bytes = base64.b64decode(image_data)
         nparr = np.frombuffer(image_bytes, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if image is None:
+            return jsonify({'message': 'Failed to decode image'}), 400
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Detect face and get encoding
@@ -845,6 +873,8 @@ def mark_attendance(current_user):
         image_bytes = base64.b64decode(image_data)
         nparr = np.frombuffer(image_bytes, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if image is None:
+            return jsonify({'message': 'Failed to decode image'}), 400
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         face_locations = face_recognition.face_locations(rgb_image)
