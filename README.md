@@ -102,13 +102,55 @@ git push heroku main
 2. The `build.sh` script will handle the build process automatically
 3. Use the `Procfile` for web service configuration
 
+## 🔐 Default Credentials
+
+### First Time Setup
+
+When you first run the application, you may need to configure admin credentials:
+
+**Option 1: Default Admin Account**
+- If the system creates a default admin account, use:
+  - Email address: `admin@smart.edu`
+  - Password: `admin123` (or check `app.py` for default credentials)
+  - ⚠️ **Important**: Change the default password immediately after first login
+
+**Option 2: Manual Setup**
+- Check the `database/` folder or `app.py` for instructions on creating the first admin account
+- You may need to run a setup script or manually insert admin credentials into the database
+
+### User Roles
+
+The system typically supports different user types:
+- **Admin**: Full system access - manage users, view all records, generate reports
+- **Teacher/Staff**: Mark attendance, view class records
+- **Student**: View personal attendance records
+
 ## 📊 Usage
 
-1. **Administrator Access**: Log in with admin credentials to manage the system
-2. **Mark Attendance**: Use the attendance interface to record attendance
-3. **View Records**: Access attendance history and generate reports
-4. **Manage Users**: Add, edit, or remove students/employees from the system
-5. **Export Data**: Download attendance records in various formats
+1. **First Login**: 
+   - Access the application at `http://localhost:5000`
+   - Log in with admin credentials (see Default Credentials section above)
+   - Change default password if applicable
+
+2. **Administrator Tasks**:
+   - Create user accounts for teachers and students
+   - Configure classes and subjects
+   - Manage attendance settings
+
+3. **Mark Attendance**: 
+   - Teachers can mark attendance for their assigned classes
+   - Use the attendance interface to record present/absent status
+
+4. **View Records**: 
+   - Access attendance history and generate reports
+   - Filter by date, class, or individual student
+
+5. **Manage Users**: 
+   - Add, edit, or remove students/employees from the system
+   - Assign roles and permissions
+
+6. **Export Data**: 
+   - Download attendance records in various formats (CSV, PDF, etc.)
 
 ## 🤝 Contributing
 
