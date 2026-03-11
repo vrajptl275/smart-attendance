@@ -2,7 +2,6 @@ services:
   - type: web
     name: smart-attendance
     env: python
-    plan: starter  # Use starter plan for more memory during build
     buildCommand: "./build.sh"
     startCommand: "gunicorn app:app"
     envVars:
