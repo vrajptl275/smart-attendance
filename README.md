@@ -87,20 +87,36 @@ smart-attendance/
 
 ## 🌐 Deployment
 
-This project is configured for deployment on platforms like Heroku or Render.
+⚠️ **Important**: This application uses face recognition libraries that require C++ compilation. **Vercel is NOT supported.**
 
-### Deploy to Heroku
+### ✅ Recommended: Deploy on Render
 
-```bash
-heroku create your-app-name
-git push heroku main
-```
+1. **Sign up at [Render.com](https://render.com)**
 
-### Deploy to Render
+2. **Create a New Web Service**
+   - Click "New +" → "Web Service"
+   - Connect your GitHub account
+   - Select the `smart-attendance` repository
 
-1. Connect your GitHub repository to Render
-2. The `build.sh` script will handle the build process automatically
-3. Use the `Procfile` for web service configuration
+3. **Configure the Service**
+   - **Name**: `smart-attendance`
+   - **Environment**: `Python 3`
+   - **Build Command**: `./build.sh`
+   - **Start Command**: `gunicorn app:app`
+   - **Instance Type**: Free (or Starter for better performance)
+
+4. **Deploy**
+   - Click "Create Web Service"
+   - Build time: ~5-10 minutes (due to face recognition compilation)
+
+### Alternative: Railway
+
+1. Go to [Railway.app](https://railway.app)
+2. Click "New Project" → "Deploy from GitHub repo"
+3. Select your repository
+4. Railway will auto-detect and deploy
+
+For detailed deployment instructions, see [README-DEPLOYMENT.md](README-DEPLOYMENT.md)
 
 ## 🔐 Default Credentials
 

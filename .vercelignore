@@ -1,0 +1,8 @@
+database/
+static/faces/
+static/models/
+*.db
+__pycache__/
+*.pyc
+.env
+.git/
