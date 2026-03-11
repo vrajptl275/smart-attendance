@@ -47,6 +47,12 @@
                     </div>
                     <div class="nav-text">Dashboard</div>
                 </div>
+                <div class="nav-item" data-section="teachers">
+                    <div class="nav-icon">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <div class="nav-text">Teachers</div>
+                </div>
                 <div class="nav-item" data-section="classes">
                     <div class="nav-icon">
                         <i class="fas fa-school"></i>
@@ -100,6 +106,19 @@
             </div>
         </div>
 
+        <!-- Teachers Section -->
+        <div class="section" id="teachers">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">All Teachers</div>
+                    <button class="add-btn" onclick="showModal('addTeacherStandaloneModal')">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="teachers-container" id="teachersContainer"></div>
+            </div>
+        </div>
+
         <!-- Classes Section -->
         <div class="section" id="classes">
             <div class="card">
@@ -125,9 +144,6 @@
             <div class="tabs">
                 <div class="tab active" data-tab="subjects" onclick="switchTab('subjects')">
                     <i class="fas fa-book"></i> Subjects
-                </div>
-                <div class="tab" data-tab="teachers" onclick="switchTab('teachers')">
-                    <i class="fas fa-chalkboard-teacher"></i> Teachers
                 </div>
                 <div class="tab" data-tab="students" onclick="switchTab('students')">
                     <i class="fas fa-user-graduate"></i> Students
@@ -206,6 +222,12 @@
                 <div class="form-group">
                     <label class="form-label">Course Code</label>
                     <input type="text" class="form-input" name="courseCode" placeholder="e.g., MATH101" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Assign Teacher</label>
+                    <select class="form-select" name="teacher_id" id="subjectTeacher" required>
+                        <option value="">Select a teacher...</option>
+                    </select>
                 </div>
                 <button type="submit" class="submit-btn">
                     <i class="fas fa-check"></i> Add Subject
@@ -347,6 +369,97 @@
         </div>
     </div>
 
-    <script src="/static/js/admin.js"></script>
+    <!-- Add Teacher Standalone Modal -->
+    <div class="modal" id="addTeacherStandaloneModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Add New Teacher</div>
+                <button class="close-btn" onclick="closeModal('addTeacherStandaloneModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addTeacherStandaloneForm" onsubmit="addTeacherStandalone(event)">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" name="name" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" name="email" placeholder="john@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" name="password" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-check"></i> Add Teacher
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Teacher Standalone Modal -->
+    <div class="modal" id="editTeacherStandaloneModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Edit Teacher</div>
+                <button class="close-btn" onclick="closeModal('editTeacherStandaloneModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editTeacherStandaloneForm" onsubmit="updateTeacherStandalone(event)">
+                <input type="hidden" id="editTeacherStandaloneId">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" id="editTeacherStandaloneName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" id="editTeacherStandaloneEmail" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password (leave blank to keep)</label>
+                    <input type="password" class="form-input" id="editTeacherStandalonePassword" placeholder="Leave blank to keep">
+                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-check"></i> Update Teacher
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Subject Modal -->
+    <div class="modal" id="editSubjectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Edit Subject</div>
+                <button class="close-btn" onclick="closeModal('editSubjectModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editSubjectForm" onsubmit="updateSubject(event)">
+                <input type="hidden" id="editSubjectId">
+                <div class="form-group">
+                    <label class="form-label">Subject Name</label>
+                    <input type="text" class="form-input" id="editSubjectName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Course Code</label>
+                    <input type="text" class="form-input" id="editSubjectCode" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Assign Teacher</label>
+                    <select class="form-select" id="editSubjectTeacher" required>
+                        <option value="">Select a teacher...</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-check"></i> Update Subject
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/admin.js?v=2"></script>
 </body>
 </html>

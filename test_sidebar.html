@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sidebar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 65px;
+            background: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .menu-toggle {
+            width: 50px;
+            height: 50px;
+            background: #667eea;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            color: white;
+            font-size: 24px;
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 300px;
+            height: 100vh;
+            background: white;
+            z-index: 600;
+            transition: left 0.3s ease;
+            box-shadow: 8px 0 40px rgba(0, 0, 0, 0.15);
+            padding: 20px;
+        }
+
+        .sidebar.active {
+            left: 0;
+        }
+
+        .main-content {
+            margin-top: 65px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h1 style="margin-left: 20px;">Test Sidebar</h1>
+    </div>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="sidebar" id="sidebar">
+        <h2>Sidebar Menu</h2>
+        <p>This is the sidebar content</p>
+        <ul>
+            <li>Dashboard</li>
+            <li>Teachers</li>
+            <li>Classes</li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <h1>Main Content</h1>
+        <p>Click the menu button to open the sidebar</p>
+    </div>
+
+    <script>
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        menuToggle.onclick = function() {
+            console.log('Button clicked!');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        };
+
+        overlay.onclick = function() {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        };
+    </script>
+</body>
+</html>

@@ -1,44 +1,68 @@
 let currentClassId = null;
 let allSubjects = [];
+let allTeachers = [];
 let currentTab = 'subjects';
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
+console.log('admin.js loaded');
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', init);
+
+function init() {
+    console.log('init called');
     checkAuth();
     loadDashboardData();
+    setupMenuToggle();
+    setupNavigation();
+    console.log('init complete');
+}
 
-    // Menu toggle
+function setupMenuToggle() {
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
 
-    menuToggle.addEventListener('click', function() {
-        this.classList.toggle('active');
+    if (!menuToggle || !sidebar || !overlay) {
+        console.error('Menu elements not found!');
+        return;
+    }
+
+    // Use addEventListener with capture to ensure we catch the click
+    menuToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Menu clicked');
         sidebar.classList.toggle('active');
         overlay.classList.toggle('active');
-    });
+        this.classList.toggle('active');
+    }, true);
 
     overlay.addEventListener('click', function() {
-        menuToggle.classList.remove('active');
         sidebar.classList.remove('active');
         overlay.classList.remove('active');
+        menuToggle.classList.remove('active');
     });
+}
 
-    // Nav items
+function setupNavigation() {
     document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', function() {
+        item.onclick = function() {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             this.classList.add('active');
             showSection(this.dataset.section);
             closeSidebar();
-        });
+        };
     });
-});
+}
 
 function closeSidebar() {
-    document.getElementById('menuToggle').classList.remove('active');
-    document.getElementById('sidebar').classList.remove('active');
-    document.getElementById('sidebarOverlay').classList.remove('active');
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    menuToggle.classList.remove('active');
+    sidebar.classList.remove('active');
+    overlay.classList.remove('active');
 }
 
 function checkAuth() {
@@ -58,12 +82,14 @@ function showSection(section) {
     
     const titles = {
         'dashboard': 'Dashboard',
+        'teachers': 'Manage Teachers', // NEW: Teachers section
         'classes': 'Manage Classes',
         'classManagement': 'Class Management'
     };
     document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
 
     if (section === 'classes') loadClasses();
+    if (section === 'teachers') loadTeachers(); // NEW: Load teachers
 }
 
 async function loadDashboardData() {
@@ -78,6 +104,161 @@ async function loadDashboardData() {
         document.getElementById('totalSubjects').textContent = data.subjects || 0;
     } catch (error) {
         console.error('Error:', error);
+    }
+}
+
+// ============================================
+// TEACHER MANAGEMENT (STANDALONE)
+// ============================================
+
+async function loadTeachers() {
+    try {
+        const response = await fetch('/api/admin/teachers', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        const teachers = await response.json();
+        allTeachers = teachers; // Store for later use
+        renderTeachersList(teachers);
+    } catch (error) {
+        console.error('Error loading teachers:', error);
+    }
+}
+
+function renderTeachersList(teachers) {
+    const container = document.getElementById('teachersContainer');
+    
+    if (teachers.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-chalkboard-teacher"></i><p>No teachers yet. Add your first teacher!</p></div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    teachers.forEach(teacher => {
+        const card = document.createElement('div');
+        card.className = 'teacher-card';
+        card.innerHTML = `
+            <div class="teacher-content">
+                <div class="teacher-avatar">${teacher.name[0].toUpperCase()}</div>
+                <div class="teacher-info">
+                    <div class="teacher-name">${teacher.name}</div>
+                    <div class="teacher-email">${teacher.email}</div>
+                </div>
+                <div class="teacher-actions">
+                    <button class="action-icon" onclick="openEditTeacherStandaloneModal(${teacher.teacher_id}, '${teacher.name}', '${teacher.email}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-icon" onclick="deleteTeacherStandalone(${teacher.teacher_id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+async function addTeacherStandalone(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch('/api/admin/teachers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            body: JSON.stringify({
+                name: formData.get('name'),
+                email: formData.get('email'),
+                password: formData.get('password')
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            closeModal('addTeacherStandaloneModal');
+            loadTeachers();
+            loadDashboardData();
+            e.target.reset();
+        } else {
+            alert(result.message || 'Failed to add teacher');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error adding teacher');
+    }
+}
+
+function openEditTeacherStandaloneModal(teacherId, name, email) {
+    document.getElementById('editTeacherStandaloneId').value = teacherId;
+    document.getElementById('editTeacherStandaloneName').value = name;
+    document.getElementById('editTeacherStandaloneEmail').value = email;
+    document.getElementById('editTeacherStandalonePassword').value = '';
+    showModal('editTeacherStandaloneModal');
+}
+
+async function updateTeacherStandalone(e) {
+    e.preventDefault();
+    const teacherId = document.getElementById('editTeacherStandaloneId').value;
+    const name = document.getElementById('editTeacherStandaloneName').value;
+    const email = document.getElementById('editTeacherStandaloneEmail').value;
+    const password = document.getElementById('editTeacherStandalonePassword').value;
+    
+    try {
+        const response = await fetch(`/api/admin/teachers/${teacherId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            body: JSON.stringify({
+                name: name,
+                email: email,
+                password: password || null
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            closeModal('editTeacherStandaloneModal');
+            loadTeachers();
+        } else {
+            alert(result.message || 'Failed to update teacher');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error updating teacher');
+    }
+}
+
+async function deleteTeacherStandalone(teacherId) {
+    if (!confirm('Delete this teacher? This action cannot be undone.')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/teachers/${teacherId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            loadTeachers();
+            loadDashboardData();
+        } else {
+            // Show detailed error message if teacher has assignments
+            if (result.subjects) {
+                alert(`${result.message}\n\n${result.subjects.join('\n')}`);
+            } else {
+                alert(result.message || 'Failed to delete teacher');
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting teacher');
     }
 }
 
@@ -228,21 +409,21 @@ function switchTab(tab) {
 
 async function loadClassData() {
     try {
-        const [subjects, teachers, students] = await Promise.all([
-            fetch(`/api/admin/classes/${currentClassId}/subjects`, {
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            }).then(r => r.json()),
-            fetch(`/api/admin/classes/${currentClassId}/teachers`, {
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            }).then(r => r.json()),
-            fetch(`/api/admin/classes/${currentClassId}/students`, {
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            }).then(r => r.json())
-        ]);
-
-        allSubjects = subjects;
-        window.classTeachers = teachers;
-        window.classStudents = students;
+        // Load subjects with teacher assignments and all available teachers
+        const subjectsResponse = await fetch(`/api/admin/classes/${currentClassId}/subjects`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        const subjectsData = await subjectsResponse.json();
+        
+        allSubjects = subjectsData.subjects || [];
+        allTeachers = subjectsData.teachers || [];
+        
+        // Load students
+        const studentsResponse = await fetch(`/api/admin/classes/${currentClassId}/students`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        window.classStudents = await studentsResponse.json();
+        
         loadTabContent();
     } catch (error) {
         console.error('Error:', error);
@@ -256,17 +437,14 @@ function loadTabContent() {
 
     if (currentTab === 'subjects') {
         tabTitle.textContent = 'Subjects';
-        tabAddBtn.onclick = () => showModal('addSubjectModal');
+        tabAddBtn.onclick = () => showAddSubjectModal();
         renderSubjects(tabContent);
-    } else if (currentTab === 'teachers') {
-        tabTitle.textContent = 'Teachers';
-        tabAddBtn.onclick = () => showAddTeacherModal();
-        renderTeachers(tabContent);
     } else if (currentTab === 'students') {
         tabTitle.textContent = 'Students';
         tabAddBtn.onclick = () => showModal('addStudentModal');
         renderStudents(tabContent);
     }
+    // NOTE: Teachers tab is removed from class management
 }
 
 function renderSubjects(container) {
@@ -279,12 +457,20 @@ function renderSubjects(container) {
     allSubjects.forEach(subject => {
         const item = document.createElement('div');
         item.className = 'list-item';
+        const teacherInfo = subject.teacher_name ? 
+            `${subject.teacher_name} (${subject.teacher_email})` : 
+            'No teacher assigned';
+        
         item.innerHTML = `
             <div class="list-item-info">
                 <div class="list-item-name">${subject.name}</div>
                 <div class="list-item-detail">${subject.code}</div>
+                <div class="list-item-teacher">👨‍🏫 ${teacherInfo}</div>
             </div>
             <div class="list-actions">
+                <button class="list-btn edit" onclick="openEditSubjectModal(${subject.id}, '${subject.name}', '${subject.code}', ${subject.teacher_id || 'null'})">
+                    <i class="fas fa-edit"></i>
+                </button>
                 <button class="list-btn delete" onclick="deleteSubject(${subject.id})">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -295,32 +481,9 @@ function renderSubjects(container) {
 }
 
 function renderTeachers(container) {
-    const teachers = window.classTeachers || [];
-    if (teachers.length === 0) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-chalkboard-teacher"></i><p>No teachers yet</p></div>';
-        return;
-    }
-
-    container.innerHTML = '';
-    teachers.forEach(teacher => {
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.innerHTML = `
-            <div class="list-item-info">
-                <div class="list-item-name">${teacher.name}</div>
-                <div class="list-item-detail">${teacher.email}</div>
-            </div>
-            <div class="list-actions">
-                <button class="list-btn edit" onclick="openEditTeacherModal(${teacher.teacher_id}, '${teacher.name}', '${teacher.email}')">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="list-btn delete" onclick="deleteTeacher(${teacher.teacher_id})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        container.appendChild(item);
-    });
+    // DEPRECATED: Teachers are no longer managed within class management
+    // This function is kept for compatibility but should not be called
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-info-circle"></i><p>Teachers are now managed from the main Teachers menu</p></div>';
 }
 
 function renderStudents(container) {
@@ -352,9 +515,35 @@ function renderStudents(container) {
     });
 }
 
+// ============================================
+// SUBJECT MANAGEMENT WITH TEACHER ASSIGNMENT
+// ============================================
+
+function showAddSubjectModal() {
+    // Populate teacher dropdown
+    const teacherSelect = document.getElementById('subjectTeacher');
+    teacherSelect.innerHTML = '<option value="">Select a teacher...</option>';
+    
+    allTeachers.forEach(teacher => {
+        const option = document.createElement('option');
+        option.value = teacher.teacher_id;
+        option.textContent = `${teacher.name} (${teacher.email})`;
+        teacherSelect.appendChild(option);
+    });
+    
+    showModal('addSubjectModal');
+}
+
 async function addSubject(e) {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const teacherId = formData.get('teacher_id');
+    
+    if (!teacherId) {
+        alert('Please select a teacher for this subject');
+        return;
+    }
+    
     try {
         const response = await fetch(`/api/admin/classes/${currentClassId}/subjects`, {
             method: 'POST',
@@ -364,153 +553,142 @@ async function addSubject(e) {
             },
             body: JSON.stringify({
                 name: formData.get('subjectName'),
-                code: formData.get('courseCode')
+                code: formData.get('courseCode'),
+                teacher_id: parseInt(teacherId)
             })
         });
+        
+        const result = await response.json();
+        
         if (response.ok) {
             closeModal('addSubjectModal');
             await loadClassData();
             loadDashboardData();
             e.target.reset();
         } else {
-            const error = await response.json();
-            alert(error.message || 'Failed to add subject');
+            alert(result.message || 'Failed to add subject');
         }
     } catch (error) {
         console.error('Error:', error);
+        alert('Error adding subject');
     }
 }
 
-async function deleteSubject(id) {
-    if (!confirm('Delete this subject?')) return;
-    try {
-        await fetch(`/api/admin/subjects/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-        });
-        await loadClassData();
-        loadDashboardData();
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
-
-function showAddTeacherModal() {
-    const select = document.getElementById('teacherSubjects');
-    select.innerHTML = '';
-    allSubjects.forEach(subject => {
+function openEditSubjectModal(subjectId, name, code, teacherId) {
+    document.getElementById('editSubjectId').value = subjectId;
+    document.getElementById('editSubjectName').value = name;
+    document.getElementById('editSubjectCode').value = code;
+    
+    // Populate teacher dropdown
+    const teacherSelect = document.getElementById('editSubjectTeacher');
+    teacherSelect.innerHTML = '<option value="">Select a teacher...</option>';
+    
+    allTeachers.forEach(teacher => {
         const option = document.createElement('option');
-        option.value = subject.id;
-        option.textContent = `${subject.name} (${subject.code})`;
-        select.appendChild(option);
-    });
-    showModal('addTeacherModal');
-}
-
-async function addTeacher(e) {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const selectedSubjects = Array.from(document.getElementById('teacherSubjects').selectedOptions).map(opt => opt.value);
-    try {
-        const response = await fetch(`/api/admin/classes/${currentClassId}/teachers`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
-            },
-            body: JSON.stringify({
-                name: formData.get('name'),
-                email: formData.get('email'),
-                password: formData.get('password'),
-                subjects: selectedSubjects
-            })
-        });
-        if (response.ok) {
-            closeModal('addTeacherModal');
-            await loadClassData();
-            loadDashboardData();
-            e.target.reset();
-        } else {
-            const error = await response.json();
-            alert(error.message || 'Failed to add teacher');
+        option.value = teacher.teacher_id;
+        option.textContent = `${teacher.name} (${teacher.email})`;
+        if (teacher.teacher_id === teacherId) {
+            option.selected = true;
         }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
-
-async function openEditTeacherModal(id, name, email) {
-    document.getElementById('editTeacherId').value = id;
-    document.getElementById('editTeacherName').value = name;
-    document.getElementById('editTeacherEmail').value = email;
-    document.getElementById('editTeacherPassword').value = '';
-    
-    const select = document.getElementById('editTeacherSubjects');
-    select.innerHTML = '';
-    allSubjects.forEach(subject => {
-        const option = document.createElement('option');
-        option.value = subject.id;
-        option.textContent = `${subject.name} (${subject.code})`;
-        select.appendChild(option);
+        teacherSelect.appendChild(option);
     });
-
-    try {
-        const response = await fetch(`/api/admin/teachers/${id}/class/${currentClassId}/subjects`, {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-        });
-        const currentSubjects = await response.json();
-        Array.from(select.options).forEach(opt => {
-            if (currentSubjects.includes(parseInt(opt.value))) opt.selected = true;
-        });
-    } catch (e) { console.error(e); }
-
-    showModal('editTeacherModal');
+    
+    showModal('editSubjectModal');
 }
 
-async function updateTeacher(e) {
+async function updateSubject(e) {
     e.preventDefault();
-    const id = document.getElementById('editTeacherId').value;
-    const selectedSubjects = Array.from(document.getElementById('editTeacherSubjects').selectedOptions).map(opt => opt.value);
+    const subjectId = document.getElementById('editSubjectId').value;
+    const name = document.getElementById('editSubjectName').value;
+    const code = document.getElementById('editSubjectCode').value;
+    const teacherId = document.getElementById('editSubjectTeacher').value;
+    
+    if (!teacherId) {
+        alert('Please select a teacher for this subject');
+        return;
+    }
     
     try {
-        const response = await fetch(`/api/admin/teachers/${id}`, {
+        const response = await fetch(`/api/admin/subjects/${subjectId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + localStorage.getItem('token')
             },
             body: JSON.stringify({
-                name: document.getElementById('editTeacherName').value,
-                email: document.getElementById('editTeacherEmail').value,
-                password: document.getElementById('editTeacherPassword').value || null,
-                subjects: selectedSubjects,
+                name: name,
+                code: code,
+                teacher_id: parseInt(teacherId),
                 class_id: currentClassId
             })
         });
+        
+        const result = await response.json();
+        
         if (response.ok) {
-            closeModal('editTeacherModal');
+            closeModal('editSubjectModal');
             await loadClassData();
         } else {
-            const error = await response.json();
-            alert(error.message || 'Failed to update teacher');
+            alert(result.message || 'Failed to update subject');
         }
     } catch (error) {
         console.error('Error:', error);
+        alert('Error updating subject');
     }
 }
 
-async function deleteTeacher(id) {
-    if (!confirm('Remove this teacher from this class?')) return;
+async function deleteSubject(id) {
+    if (!confirm('Delete this subject? This will also remove the teacher assignment.')) return;
+    
     try {
-        await fetch(`/api/admin/teachers/${id}?class_id=${currentClassId}`, {
+        const response = await fetch(`/api/admin/subjects/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
         });
-        await loadClassData();
-        loadDashboardData();
+        
+        if (response.ok) {
+            await loadClassData();
+            loadDashboardData();
+        } else {
+            const result = await response.json();
+            alert(result.message || 'Failed to delete subject');
+        }
     } catch (error) {
         console.error('Error:', error);
+        alert('Error deleting subject');
     }
+}
+
+// ============================================
+// DEPRECATED TEACHER FUNCTIONS (CLASS-BASED)
+// These functions are deprecated in favor of standalone teacher management
+// ============================================
+
+function showAddTeacherModal() {
+    // DEPRECATED: Teachers are now managed independently
+    alert('Teachers are now managed from the main Teachers menu. Please use the Teachers section in the sidebar.');
+}
+
+async function addTeacher(e) {
+    // DEPRECATED: Use addTeacherStandalone instead
+    e.preventDefault();
+    alert('Teachers are now managed from the main Teachers menu.');
+}
+
+async function openEditTeacherModal(id, name, email) {
+    // DEPRECATED: Use openEditTeacherStandaloneModal instead
+    alert('Teachers are now managed from the main Teachers menu.');
+}
+
+async function updateTeacher(e) {
+    // DEPRECATED: Use updateTeacherStandalone instead
+    e.preventDefault();
+    alert('Teachers are now managed from the main Teachers menu.');
+}
+
+async function deleteTeacher(id) {
+    // DEPRECATED: Use deleteTeacherStandalone instead
+    alert('Teachers are now managed from the main Teachers menu.');
 }
 
 async function addStudent(e) {

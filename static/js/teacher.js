@@ -57,14 +57,38 @@ async function loadTeacherData() {
 
         const subjectsList = document.getElementById('subjectsList');
         subjectsList.innerHTML = '';
-        teacherData.subjects.forEach(subject => {
-            subjectsList.innerHTML += `
+        
+        if (teacherData.subjects && teacherData.subjects.length > 0) {
+            // Group subjects by class for better display
+            const subjectsByClass = {};
+            teacherData.subjects.forEach(subject => {
+                if (!subjectsByClass[subject.class_name]) {
+                    subjectsByClass[subject.class_name] = [];
+                }
+                subjectsByClass[subject.class_name].push(subject);
+            });
+            
+            // Display subjects grouped by class
+            Object.keys(subjectsByClass).forEach(className => {
+                const classSubjects = subjectsByClass[className];
+                classSubjects.forEach(subject => {
+                    subjectsList.innerHTML += `
+                        <div class="info-item">
+                            <div class="info-label">${className}</div>
+                            <div class="info-value">${subject.subject_name} (${subject.course_code})</div>
+                        </div>
+                    `;
+                });
+            });
+        } else {
+            subjectsList.innerHTML = `
                 <div class="info-item">
-                    <div class="info-label">${subject.class_name}</div>
-                    <div class="info-value">${subject.subject_name} (${subject.course_code})</div>
+                    <div class="info-value" style="color: #718096; font-style: italic;">
+                        No subjects assigned yet. Contact your administrator.
+                    </div>
                 </div>
             `;
-        });
+        }
     } catch (error) {
         console.error('Error:', error);
     }

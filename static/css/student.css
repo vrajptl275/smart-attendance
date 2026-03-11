@@ -473,3 +473,168 @@ body {
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     }
 }
+/* Blink Detection Styles */
+.blink-counter-container {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    color: white;
+}
+
+.blink-counter {
+    font-size: 24px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.blink-dot {
+    font-size: 32px;
+    transition: all 0.3s ease;
+}
+
+.blink-dot.filled {
+    color: #48bb78;
+    text-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
+    animation: pulse 0.5s ease-in-out;
+}
+
+.blink-dot.empty {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.blink-text {
+    font-size: 18px;
+    margin-left: 10px;
+    opacity: 0.9;
+}
+
+.blink-instruction {
+    font-size: 16px;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.blink-instruction i {
+    font-size: 18px;
+}
+
+/* Feedback Message Styles */
+.feedback-container {
+    margin: 15px 0;
+    text-align: center;
+}
+
+.feedback-message {
+    padding: 12px 20px;
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #2d3748;
+    transition: all 0.3s ease;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.feedback-message.blink-detected {
+    background: #c6f6d5;
+    border-color: #48bb78;
+    color: #22543d;
+    animation: blinkFeedback 0.5s ease-in-out;
+}
+
+/* Fallback Section */
+.fallback-section {
+    margin-top: 20px;
+    padding: 15px;
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.fallback-message {
+    color: #742a2a;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.btn.btn-outline {
+    background: transparent;
+    border: 2px solid #667eea;
+    color: #667eea;
+}
+
+.btn.btn-outline:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes blinkFeedback {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Enhanced Camera Overlay for Better Face Positioning */
+.camera-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 250px;
+    border: 3px solid #667eea;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.camera-overlay::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    border: 2px dashed rgba(102, 126, 234, 0.3);
+    border-radius: 50%;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .blink-counter {
+        font-size: 20px;
+    }
+    
+    .blink-dot {
+        font-size: 28px;
+    }
+    
+    .blink-text {
+        font-size: 16px;
+    }
+    
+    .camera-overlay {
+        width: 160px;
+        height: 200px;
+    }
+}

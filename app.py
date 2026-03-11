@@ -280,6 +280,134 @@ def get_admin_stats(current_user):
         'subjects': subjects
     })
 
+# ============================================
+# API - TEACHER MANAGEMENT (STANDALONE)
+# ============================================
+
+@app.route('/api/admin/teachers', methods=['GET', 'POST'])
+@token_required
+@role_required('admin')
+def manage_teachers_standalone(current_user):
+    if request.method == 'GET':
+        # Get ALL teachers (not filtered by class)
+        teachers = query_db('''
+            SELECT t.id as teacher_id, u.id as user_id, u.name, u.email
+            FROM teachers t
+            JOIN users u ON t.user_id = u.id
+            ORDER BY u.name
+        ''')
+        return jsonify(teachers)
+    
+    elif request.method == 'POST':
+        # Create teacher with only name, email, password (no subject assignment)
+        data = request.json
+        name = data.get('name')
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not name or not email or not password:
+            return jsonify({'message': 'Name, email, and password are required'}), 400
+        
+        try:
+            conn = get_db()
+            
+            # Check if email already exists
+            existing_user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+            if existing_user:
+                return jsonify({'message': 'Email already exists'}), 400
+            
+            # Create user
+            hashed_password = generate_password_hash(password)
+            cursor = conn.execute(
+                'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
+                (email, hashed_password, name, 'teacher')
+            )
+            user_id = cursor.lastrowid
+            
+            # Create teacher record
+            conn.execute('INSERT INTO teachers (user_id) VALUES (?)', (user_id,))
+            
+            conn.commit()
+            conn.close()
+            return jsonify({'message': 'Teacher created successfully'}), 201
+            
+        except sqlite3.IntegrityError:
+            return jsonify({'message': 'Email already exists'}), 400
+
+@app.route('/api/admin/teachers/<int:teacher_id>', methods=['PUT', 'DELETE'])
+@token_required
+@role_required('admin')
+def manage_single_teacher_standalone(current_user, teacher_id):
+    if request.method == 'PUT':
+        # Update teacher (name, email, password only)
+        data = request.json
+        name = data.get('name')
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not name or not email:
+            return jsonify({'message': 'Name and email are required'}), 400
+        
+        try:
+            conn = get_db()
+            
+            # Get teacher's user_id
+            teacher = conn.execute('SELECT user_id FROM teachers WHERE id = ?', (teacher_id,)).fetchone()
+            if not teacher:
+                return jsonify({'message': 'Teacher not found'}), 404
+            
+            user_id = teacher['user_id']
+            
+            # Update user record
+            if password:
+                hashed_password = generate_password_hash(password)
+                conn.execute(
+                    'UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?',
+                    (name, email, hashed_password, user_id)
+                )
+            else:
+                conn.execute(
+                    'UPDATE users SET name = ?, email = ? WHERE id = ?',
+                    (name, email, user_id)
+                )
+            
+            conn.commit()
+            conn.close()
+            return jsonify({'message': 'Teacher updated successfully'})
+            
+        except sqlite3.IntegrityError:
+            return jsonify({'message': 'Email already exists'}), 400
+    
+    elif request.method == 'DELETE':
+        # Check if teacher is assigned to any subjects before deletion
+        conn = get_db()
+        
+        # Check for subject assignments
+        assignments = conn.execute('''
+            SELECT s.name as subject_name, c.name as class_name
+            FROM teacher_subjects ts
+            JOIN subjects s ON ts.subject_id = s.id
+            JOIN classes c ON ts.class_id = c.id
+            WHERE ts.teacher_id = ?
+        ''', (teacher_id,)).fetchall()
+        
+        if assignments:
+            # Teacher has assignments, cannot delete
+            subject_list = [f"{a['class_name']}: {a['subject_name']}" for a in assignments]
+            return jsonify({
+                'message': 'Cannot delete teacher. Remove from these subjects first:',
+                'subjects': subject_list
+            }), 400
+        
+        # Safe to delete
+        teacher = conn.execute('SELECT user_id FROM teachers WHERE id = ?', (teacher_id,)).fetchone()
+        if teacher:
+            conn.execute('DELETE FROM users WHERE id = ?', (teacher['user_id'],))
+        
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'Teacher deleted successfully'})
+
 @app.route('/api/admin/classes', methods=['GET', 'POST'])
 @token_required
 @role_required('admin')
@@ -341,146 +469,138 @@ def manage_single_class(current_user, class_id):
 def manage_subjects(current_user, class_id):
     if request.method == 'GET':
         subjects = query_db('''
-            SELECT * FROM subjects WHERE class_id = ? ORDER BY name
-        ''', (class_id,))
-        return jsonify(subjects)
+            SELECT s.*, u.name as teacher_name, u.email as teacher_email
+            FROM subjects s
+            LEFT JOIN teacher_subjects ts ON s.id = ts.subject_id AND ts.class_id = ?
+            LEFT JOIN teachers t ON ts.teacher_id = t.id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE s.class_id = ?
+            ORDER BY s.name
+        ''', (class_id, class_id))
+        
+        # Also return all teachers for dropdown
+        all_teachers = query_db('''
+            SELECT t.id as teacher_id, u.name, u.email
+            FROM teachers t
+            JOIN users u ON t.user_id = u.id
+            ORDER BY u.name
+        ''')
+        
+        return jsonify({
+            'subjects': subjects,
+            'teachers': all_teachers
+        })
     
     elif request.method == 'POST':
         data = request.json
         name = data.get('name')
         code = data.get('code')
+        teacher_id = data.get('teacher_id')  # NEW: Required teacher assignment
         
-        if not name or not code:
-            return jsonify({'message': 'Subject name and code required'}), 400
+        if not name or not code or not teacher_id:
+            return jsonify({'message': 'Subject name, code, and teacher are required'}), 400
         
+        try:
+            conn = get_db()
+            
+            # Create subject
+            cursor = conn.execute(
+                'INSERT INTO subjects (class_id, name, code) VALUES (?, ?, ?)',
+                (class_id, name, code)
+            )
+            subject_id = cursor.lastrowid
+            
+            # Assign teacher to subject (one-to-one relationship)
+            conn.execute(
+                'INSERT INTO teacher_subjects (teacher_id, subject_id, class_id) VALUES (?, ?, ?)',
+                (teacher_id, subject_id, class_id)
+            )
+            
+            conn.commit()
+            conn.close()
+            return jsonify({'message': 'Subject created and teacher assigned successfully'}), 201
+            
+        except sqlite3.IntegrityError as e:
+            return jsonify({'message': f'Error creating subject: {str(e)}'}), 400
+
+@app.route('/api/admin/subjects/<int:subject_id>', methods=['PUT', 'DELETE'])
+@token_required
+@role_required('admin')
+def manage_single_subject(current_user, subject_id):
+    if request.method == 'PUT':
+        # Update subject and reassign teacher
+        data = request.json
+        name = data.get('name')
+        code = data.get('code')
+        teacher_id = data.get('teacher_id')
+        class_id = data.get('class_id')
+        
+        if not name or not code or not teacher_id or not class_id:
+            return jsonify({'message': 'All fields are required'}), 400
+        
+        try:
+            conn = get_db()
+            
+            # Update subject
+            conn.execute(
+                'UPDATE subjects SET name = ?, code = ? WHERE id = ?',
+                (name, code, subject_id)
+            )
+            
+            # Update teacher assignment
+            conn.execute(
+                'DELETE FROM teacher_subjects WHERE subject_id = ? AND class_id = ?',
+                (subject_id, class_id)
+            )
+            conn.execute(
+                'INSERT INTO teacher_subjects (teacher_id, subject_id, class_id) VALUES (?, ?, ?)',
+                (teacher_id, subject_id, class_id)
+            )
+            
+            conn.commit()
+            conn.close()
+            return jsonify({'message': 'Subject updated successfully'})
+            
+        except sqlite3.IntegrityError as e:
+            return jsonify({'message': f'Error updating subject: {str(e)}'}), 400
+    
+    elif request.method == 'DELETE':
         conn = get_db()
-        conn.execute(
-            'INSERT INTO subjects (class_id, name, code) VALUES (?, ?, ?)',
-            (class_id, name, code)
-        )
+        
+        # Delete teacher assignment first
+        conn.execute('DELETE FROM teacher_subjects WHERE subject_id = ?', (subject_id,))
+        
+        # Delete subject
+        conn.execute('DELETE FROM subjects WHERE id = ?', (subject_id,))
+        
         conn.commit()
         conn.close()
-        return jsonify({'message': 'Subject created successfully'}), 201
+        return jsonify({'message': 'Subject deleted successfully'})
 
 @app.route('/api/admin/classes/<int:class_id>/teachers', methods=['GET', 'POST'])
 @token_required
 @role_required('admin')
 def manage_teachers(current_user, class_id):
-    if request.method == 'GET':
-        teachers = query_db('''
-            SELECT DISTINCT u.id, u.name, u.email, t.id as teacher_id
-            FROM users u
-            JOIN teachers t ON u.id = t.user_id
-            JOIN teacher_subjects ts ON t.id = ts.teacher_id
-            WHERE ts.class_id = ?
-        ''', (class_id,))
-        return jsonify(teachers)
-    
-    elif request.method == 'POST':
-        data = request.json
-        name = data.get('name')
-        email = data.get('email')
-        password = data.get('password')
-        subjects = data.get('subjects', [])
-        
-        if not name or not email:
-            return jsonify({'message': 'Name and email required'}), 400
-        
-        try:
-            conn = get_db()
-            
-            # Check if teacher already exists
-            existing_user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-            
-            if existing_user:
-                if existing_user['role'] != 'teacher':
-                    return jsonify({'message': 'Email is registered to a non-teacher account'}), 400
-                
-                teacher = conn.execute('SELECT id FROM teachers WHERE user_id = ?', (existing_user['id'],)).fetchone()
-                teacher_id = teacher['id']
-            else:
-                if not password:
-                    return jsonify({'message': 'Password required for new teacher'}), 400
-                    
-                hashed_password = generate_password_hash(password)
-                cursor = conn.execute(
-                    'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
-                    (email, hashed_password, name, 'teacher')
-                )
-                user_id = cursor.lastrowid
-                
-                cursor = conn.execute(
-                    'INSERT INTO teachers (user_id) VALUES (?)',
-                    (user_id,)
-                )
-                teacher_id = cursor.lastrowid
-            
-            for subject_id in subjects:
-                # Avoid duplicates
-                exists = conn.execute('SELECT id FROM teacher_subjects WHERE teacher_id=? AND subject_id=? AND class_id=?', 
-                                    (teacher_id, subject_id, class_id)).fetchone()
-                if not exists:
-                    conn.execute(
-                        'INSERT INTO teacher_subjects (teacher_id, subject_id, class_id) VALUES (?, ?, ?)',
-                        (teacher_id, subject_id, class_id)
-                    )
-            
-            conn.commit()
-            conn.close()
-            return jsonify({'message': 'Teacher created successfully'}), 201
-        except sqlite3.IntegrityError:
-            return jsonify({'message': 'Email already exists'}), 400
+    # DEPRECATED: This endpoint is no longer used in the new teacher management system
+    # Teachers are now managed independently via /api/admin/teachers
+    # Subject assignments are handled via /api/admin/classes/<class_id>/subjects
+    return jsonify({'message': 'This endpoint is deprecated. Use /api/admin/teachers instead'}), 410
 
 @app.route('/api/admin/teachers/<int:teacher_id>', methods=['PUT'])
 @token_required
 @role_required('admin')
 def update_teacher(current_user, teacher_id):
-    data = request.json
-    name = data.get('name')
-    email = data.get('email')
-    password = data.get('password')
-    subjects = data.get('subjects')
-    class_id = data.get('class_id')
-
-    if not name or not email:
-        return jsonify({'message': 'Name and email required'}), 400
-
-    conn = get_db()
-    try:
-        teacher = conn.execute('SELECT user_id FROM teachers WHERE id = ?', (teacher_id,)).fetchone()
-        if not teacher:
-            return jsonify({'message': 'Teacher not found'}), 404
-        user_id = teacher['user_id']
-
-        if password:
-            hashed = generate_password_hash(password)
-            conn.execute('UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?',
-                         (name, email, hashed, user_id))
-        else:
-            conn.execute('UPDATE users SET name = ?, email = ? WHERE id = ?',
-                         (name, email, user_id))
-
-        if subjects is not None and class_id:
-            conn.execute('DELETE FROM teacher_subjects WHERE teacher_id = ? AND class_id = ?',
-                         (teacher_id, class_id))
-            for sub_id in subjects:
-                conn.execute('INSERT INTO teacher_subjects (teacher_id, subject_id, class_id) VALUES (?, ?, ?)',
-                             (teacher_id, sub_id, class_id))
-
-        conn.commit()
-        return jsonify({'message': 'Teacher updated successfully'})
-    except sqlite3.IntegrityError:
-        return jsonify({'message': 'Email already exists'}), 400
-    finally:
-        conn.close()
+    # DEPRECATED: This endpoint is replaced by /api/admin/teachers/<teacher_id>
+    # The new endpoint handles teacher updates without subject assignments
+    return jsonify({'message': 'This endpoint is deprecated. Use /api/admin/teachers/<teacher_id> instead'}), 410
 
 @app.route('/api/admin/teachers/<int:teacher_id>/class/<int:class_id>/subjects', methods=['GET'])
 @token_required
 @role_required('admin')
 def get_teacher_class_subjects(current_user, teacher_id, class_id):
-    subjects = query_db('SELECT subject_id FROM teacher_subjects WHERE teacher_id = ? AND class_id = ?', 
-                       (teacher_id, class_id))
-    return jsonify([s['subject_id'] for s in subjects])
+    # DEPRECATED: Subject assignments are now handled via subject creation
+    # This endpoint is no longer needed in the new system
+    return jsonify({'message': 'This endpoint is deprecated'}), 410
 
 @app.route('/api/admin/classes/<int:class_id>/students', methods=['GET', 'POST'])
 @token_required
@@ -567,29 +687,15 @@ def update_student(current_user, student_id):
 @token_required
 @role_required('admin')
 def delete_subject(current_user, subject_id):
-    conn = get_db()
-    conn.execute('DELETE FROM subjects WHERE id = ?', (subject_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({'message': 'Subject deleted successfully'})
+    # DEPRECATED: Subject deletion is now handled by manage_single_subject
+    return jsonify({'message': 'This endpoint is deprecated. Use PUT/DELETE on /api/admin/subjects/<subject_id> instead'}), 410
 
 @app.route('/api/admin/teachers/<int:teacher_id>', methods=['DELETE'])
 @token_required
 @role_required('admin')
 def delete_teacher(current_user, teacher_id):
-    class_id = request.args.get('class_id')
-    conn = get_db()
-    
-    if class_id:
-        # Only remove from this specific class
-        conn.execute('DELETE FROM teacher_subjects WHERE teacher_id = ? AND class_id = ?', (teacher_id, class_id))
-    else:
-        user_id = conn.execute('SELECT user_id FROM teachers WHERE id = ?', (teacher_id,)).fetchone()
-        if user_id:
-            conn.execute('DELETE FROM users WHERE id = ?', (user_id['user_id'],))
-    conn.commit()
-    conn.close()
-    return jsonify({'message': 'Teacher deleted successfully'})
+    # DEPRECATED: Teacher deletion is now handled by manage_single_teacher_standalone
+    return jsonify({'message': 'This endpoint is deprecated. Use /api/admin/teachers/<teacher_id> instead'}), 410
 
 @app.route('/api/admin/students/<int:student_id>', methods=['DELETE'])
 @token_required
@@ -618,12 +724,14 @@ def get_teacher_profile(current_user):
         WHERE u.id = ?
     ''', (current_user['user_id'],), one=True)
     
+    # Get all assigned subjects across all classes
     subjects = query_db('''
         SELECT s.name as subject_name, s.code as course_code, c.name as class_name
         FROM teacher_subjects ts
         JOIN subjects s ON ts.subject_id = s.id
         JOIN classes c ON ts.class_id = c.id
         WHERE ts.teacher_id = ?
+        ORDER BY c.name, s.name
     ''', (teacher['id'],))
     
     teacher['subjects'] = subjects
@@ -636,6 +744,7 @@ def get_teacher_classes_subjects(current_user):
     teacher = query_db('SELECT id FROM teachers WHERE user_id = ?', 
                       (current_user['user_id'],), one=True)
     
+    # Only return classes and subjects where this teacher is assigned
     data = query_db('''
         SELECT DISTINCT c.id as class_id, c.name as class_name,
                s.id as subject_id, s.name as subject_name, s.code as course_code
@@ -643,6 +752,7 @@ def get_teacher_classes_subjects(current_user):
         JOIN classes c ON ts.class_id = c.id
         JOIN subjects s ON ts.subject_id = s.id
         WHERE ts.teacher_id = ?
+        ORDER BY c.name, s.name
     ''', (teacher['id'],))
     
     return jsonify(data)
@@ -946,5 +1056,5 @@ def get_student_attendance_report(current_user):
 # ============================================
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5002))
     app.run(debug=os.environ.get('FLASK_ENV') != 'production', host='0.0.0.0', port=port)

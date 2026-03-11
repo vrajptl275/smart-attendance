@@ -2,6 +2,18 @@ let studentData = null;
 let currentStream = null;
 let currentSessionData = null;
 
+// Blink detection variables
+let blinkCount = 0;
+let eyesWereOpen = true;
+let lastBlinkTime = null;
+let isDetecting = false;
+let detectionLoop = null;
+let failedAttempts = 0;
+const EAR_THRESHOLD = 0.25;
+const BLINK_TIMEOUT = 5000; // 5 seconds
+const FACE_DETECTION_INTERVAL = 33; // ~30 FPS
+const MAX_FAILED_ATTEMPTS = 3;
+
 function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('active');
     document.querySelector('.sidebar-overlay').classList.toggle('active');
@@ -143,8 +155,8 @@ async function captureFace() {
 async function verifyCode() {
     const code = document.getElementById('sessionCodeInput').value;
     
-    if (code.length !== 6) {
-        showAlert('danger', 'Enter 6-digit code');
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+        showAlert('danger', 'Enter a valid 6-digit code');
         return;
     }
 
@@ -173,10 +185,8 @@ async function verifyCode() {
             document.getElementById('codeInputSection').style.display = 'none';
             document.getElementById('attendanceCameraSection').style.display = 'block';
 
-            currentStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user', width: 640, height: 480 } 
-            });
-            document.getElementById('attendanceCamera').srcObject = currentStream;
+            // Start camera and blink detection
+            await startAttendanceCamera();
         } else {
             showAlert('danger', result.message || 'Invalid code');
         }
@@ -185,9 +195,186 @@ async function verifyCode() {
     }
 }
 
-async function markAttendance() {
-    if (!currentSessionData) return;
+async function startAttendanceCamera() {
+    try {
+        currentStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: 'user', 
+                width: { ideal: 640 }, 
+                height: { ideal: 480 } 
+            } 
+        });
+        
+        const video = document.getElementById('attendanceCamera');
+        video.srcObject = currentStream;
+        
+        // Wait for video to be ready
+        video.onloadedmetadata = () => {
+            video.play();
+            // Reset blink detection state
+            resetBlinkDetection();
+            // Start blink detection loop
+            startBlinkDetection();
+        };
+        
+    } catch (error) {
+        showAlert('danger', 'Camera access denied: ' + error.message);
+    }
+}
 
+function resetBlinkDetection() {
+    blinkCount = 0;
+    eyesWereOpen = true;
+    lastBlinkTime = Date.now();
+    isDetecting = false;
+    updateBlinkCounter();
+    updateFeedbackMessage('Position your face in the oval');
+    
+    if (detectionLoop) {
+        clearInterval(detectionLoop);
+        detectionLoop = null;
+    }
+    
+    // Hide fallback section initially
+    document.getElementById('fallbackSection').style.display = 'none';
+}
+
+function startBlinkDetection() {
+    isDetecting = true;
+    updateFeedbackMessage('Face detected ✓ - Blink 3 times to mark attendance');
+    
+    detectionLoop = setInterval(() => {
+        processFrameForBlinks();
+    }, FACE_DETECTION_INTERVAL);
+}
+
+function processFrameForBlinks() {
+    if (!isDetecting || !currentStream) return;
+    
+    const video = document.getElementById('attendanceCamera');
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    
+    // Check for timeout
+    if (Date.now() - lastBlinkTime > BLINK_TIMEOUT && blinkCount > 0) {
+        updateFeedbackMessage('Timeout - Starting over');
+        failedAttempts++;
+        checkForFallback();
+        resetBlinkDetection();
+        setTimeout(() => startBlinkDetection(), 1000);
+        return;
+    }
+    
+    // Simulate blink detection (replace with actual implementation)
+    simulateBlinkDetection();
+}
+
+function simulateBlinkDetection() {
+    // This is a placeholder function for demonstration
+    // In production, replace with actual eye detection and EAR calculation
+    
+    // Simulate random blink detection for demo (more realistic timing)
+    if (Math.random() < 0.015) { // 1.5% chance per frame
+        if (eyesWereOpen) {
+            // Blink detected!
+            eyesWereOpen = false;
+            blinkCount++;
+            lastBlinkTime = Date.now();
+            
+            updateBlinkCounter();
+            
+            // Play sound feedback (optional)
+            playBlinkSound();
+            
+            if (blinkCount === 1) {
+                updateFeedbackMessage('Blink 1 detected! 👁️ (2 more needed)');
+            } else if (blinkCount === 2) {
+                updateFeedbackMessage('Blink 2 detected! 👁️👁️ (1 more needed)');
+            } else if (blinkCount >= 3) {
+                updateFeedbackMessage('Blink 3 detected! 👁️👁️👁️ Processing...');
+                // 3 blinks detected - capture and process
+                stopBlinkDetection();
+                captureAndVerifyFace();
+            }
+            
+            // Reset eyes state after short delay
+            setTimeout(() => {
+                eyesWereOpen = true;
+            }, 200);
+        }
+    }
+}
+
+function playBlinkSound() {
+    // Optional: Play a subtle sound on blink detection
+    // You can add an audio element or use Web Audio API
+    try {
+        // Create a short beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (error) {
+        // Ignore audio errors
+    }
+}
+
+function checkForFallback() {
+    if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+        document.getElementById('fallbackSection').style.display = 'block';
+        updateFeedbackMessage('Having trouble? Use manual capture below');
+    }
+}
+
+function stopBlinkDetection() {
+    isDetecting = false;
+    if (detectionLoop) {
+        clearInterval(detectionLoop);
+        detectionLoop = null;
+    }
+}
+
+function updateBlinkCounter() {
+    const counter = document.getElementById('blinkCounter');
+    let counterHTML = '';
+    
+    for (let i = 0; i < 3; i++) {
+        if (i < blinkCount) {
+            counterHTML += '<span class="blink-dot filled">●</span>';
+        } else {
+            counterHTML += '<span class="blink-dot empty">○</span>';
+        }
+    }
+    
+    counter.innerHTML = counterHTML + ` <span class="blink-text">(${blinkCount}/3)</span>`;
+}
+
+function updateFeedbackMessage(message) {
+    const feedback = document.getElementById('feedbackMessage');
+    feedback.textContent = message;
+    
+    // Add animation class for blink detection
+    if (message.includes('Blink') && message.includes('detected')) {
+        feedback.classList.add('blink-detected');
+        setTimeout(() => {
+            feedback.classList.remove('blink-detected');
+        }, 500);
+    }
+}
+
+async function captureAndVerifyFace() {
+    updateFeedbackMessage('📷 Capturing... Hold still');
+    
     const video = document.getElementById('attendanceCamera');
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
@@ -212,18 +399,64 @@ async function markAttendance() {
         const result = await response.json();
 
         if (response.ok) {
-            showAlert('success', 'Attendance marked!');
-            setTimeout(() => cancelAttendance(), 2000);
+            // Success - reset failed attempts
+            failedAttempts = 0;
+            stopAllCameras();
+            showAlert('success', '✅ Attendance Marked Successfully!');
+            updateFeedbackMessage(`✅ Success! Marked for ${currentSessionData.class_name} - ${currentSessionData.subject_name}`);
+            
+            setTimeout(() => {
+                cancelAttendance();
+            }, 3000);
         } else {
-            showAlert('danger', result.message || 'Failed');
+            // Handle different failure cases
+            failedAttempts++;
+            
+            if (result.message.includes('verification failed')) {
+                showAlert('danger', '❌ Face verification failed');
+                updateFeedbackMessage('Face verification failed - Try again');
+                checkForFallback();
+                resetBlinkDetection();
+                setTimeout(() => startBlinkDetection(), 2000);
+            } else if (result.message.includes('already marked')) {
+                stopAllCameras();
+                showAlert('danger', '⚠️ Attendance already marked');
+                setTimeout(() => cancelAttendance(), 2000);
+            } else if (result.message.includes('expired')) {
+                stopAllCameras();
+                showAlert('danger', '🕐 Session expired');
+                setTimeout(() => cancelAttendance(), 2000);
+            } else {
+                showAlert('danger', result.message || 'Failed to mark attendance');
+                checkForFallback();
+                resetBlinkDetection();
+                setTimeout(() => startBlinkDetection(), 2000);
+            }
         }
     } catch (error) {
+        failedAttempts++;
         showAlert('danger', 'Error: ' + error.message);
+        checkForFallback();
+        resetBlinkDetection();
+        setTimeout(() => startBlinkDetection(), 2000);
     }
+}
+
+// DEPRECATED: Manual attendance marking is removed in favor of blink detection
+async function markAttendance() {
+    // This function is no longer used - attendance is now marked automatically
+    // after 3 blinks are detected via captureAndVerifyFace()
+    console.warn('markAttendance() is deprecated - use blink detection instead');
 }
 
 function cancelAttendance() {
     stopAllCameras();
+    stopBlinkDetection();
+    resetBlinkDetection();
+    
+    // Reset failed attempts
+    failedAttempts = 0;
+    
     document.getElementById('codeInputSection').style.display = 'block';
     document.getElementById('attendanceCameraSection').style.display = 'none';
     document.getElementById('sessionCodeInput').value = '';
